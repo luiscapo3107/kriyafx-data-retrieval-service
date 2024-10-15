@@ -42,6 +42,10 @@ const fetchFinancialData = () => {
                 value: JSON.stringify(combinedData),
             });
 
+            // Publish update notification
+            console.log('Publishing update notification...');
+            await redisClient.publish('options_chain_update', 'update');
+
             console.log('Managing Redis entries...');
             const maxEntries = config.redisMaxEntries;
             const totalEntries = await redisClient.zCard('options_chain_data_zset');

@@ -8,7 +8,6 @@ let redisClient;
 async function initializeRedisClient() {
   if (!redisClient || !redisClient.isOpen) {
     redisClient = Redis.createClient({
-      // your Redis configuration here
     });
 
     redisClient.on('error', (err) => console.log('Redis Client Error', err));
