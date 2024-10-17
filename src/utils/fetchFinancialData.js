@@ -36,6 +36,7 @@ const fetchFinancialData = () => {
             const timestamp = rawData.updated[0];
 
             console.log('Storing data in Redis...');
+            console.log('Combined Data:', JSON.stringify(combinedData, null, 2));
             const redisClient = await getRedisClient();
             await redisClient.zAdd('options_chain_data_zset', {
                 score: timestamp,

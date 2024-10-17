@@ -19,13 +19,18 @@ const prepareData = async (data) => {
 		const totalMetrics = calculateTotalMetrics(strikes);
 		const expectedMove = await calculateExpectedMove(symbol);
 
-		return {
+		const resultObject = {
 			Symbol: symbol,
 			Updated: updated,
 			...totalMetrics,
 			ExpectedMove: expectedMove,
 			Data: strikes,
 		};
+
+		//console.log("Data Object:", JSON.stringify(resultObject, null, 2));
+
+		return resultObject;
+
 	} catch (error) {
 		console.error('Error in prepareData:', error);
 		return null;
@@ -84,6 +89,9 @@ const findClosestEntries = (historicalData) => {
 	const timePoints = [1, 3, 5, 15];
 	return timePoints.map(minutes => {
 		const targetTime = now - minutes * 60 * 1000;
+		if (historicalData.length === 0) {
+			return null; // Return null if there's no historical data
+		}
 		return historicalData.reduce((prev, curr) => 
 			Math.abs(curr.timestamp - targetTime) < Math.abs(prev.timestamp - targetTime) ? curr : prev
 		);
@@ -110,11 +118,11 @@ const calculateMetrics = (strikes, closestEntries) => {
 const calculateROC = (strikeData, closestEntries) => {
 	const lastEntry = closestEntries[closestEntries.length - 1];
 	return {
-		ROC_Last: calculateROCValue(strikeData.Net_ASK_Volume, lastEntry?.Options?.Data?.find(s => s.strike === strikeData.strike)?.Net_ASK_Volume),
-		ROC_1: calculateROCValue(strikeData.Net_ASK_Volume, closestEntries[0]?.Options?.Data?.find(s => s.strike === strikeData.strike)?.Net_ASK_Volume),
-		ROC_3: calculateROCValue(strikeData.Net_ASK_Volume, closestEntries[1]?.Options?.Data?.find(s => s.strike === strikeData.strike)?.Net_ASK_Volume),
-		ROC_5: calculateROCValue(strikeData.Net_ASK_Volume, closestEntries[2]?.Options?.Data?.find(s => s.strike === strikeData.strike)?.Net_ASK_Volume),
-		ROC_15: calculateROCValue(strikeData.Net_ASK_Volume, closestEntries[3]?.Options?.Data?.find(s => s.strike === strikeData.strike)?.Net_ASK_Volume),
+		ROC_Last: calculateROCValue(strikeData.Net_ASK_Volume, lastEntry?.Options?.Data?.find(s => s?.strike === strikeData.strike)?.Net_ASK_Volume),
+		ROC_1: calculateROCValue(strikeData.Net_ASK_Volume, closestEntries[0]?.Options?.Data?.find(s => s?.strike === strikeData.strike)?.Net_ASK_Volume),
+		ROC_3: calculateROCValue(strikeData.Net_ASK_Volume, closestEntries[1]?.Options?.Data?.find(s => s?.strike === strikeData.strike)?.Net_ASK_Volume),
+		ROC_5: calculateROCValue(strikeData.Net_ASK_Volume, closestEntries[2]?.Options?.Data?.find(s => s?.strike === strikeData.strike)?.Net_ASK_Volume),
+		ROC_15: calculateROCValue(strikeData.Net_ASK_Volume, closestEntries[3]?.Options?.Data?.find(s => s?.strike === strikeData.strike)?.Net_ASK_Volume),
 	};
 };
 
