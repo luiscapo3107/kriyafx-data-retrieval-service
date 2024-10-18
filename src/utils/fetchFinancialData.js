@@ -15,6 +15,8 @@ const fetchFinancialData = async () => {
             const marketOpen = await isMarketOpen();
             if (!marketOpen) {
                 console.log('Market is closed. Skipping data fetch.');
+                // Schedule the next check after a delay when market is closed
+                setTimeout(fetchAndProcessData, config.retrieveInterval);
                 return;
             }
 
