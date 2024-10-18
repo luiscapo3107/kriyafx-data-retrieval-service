@@ -2,8 +2,8 @@ const axios = require('axios');
 const { getRedisClient } = require('../services/redisClient');
 const prepareData = require('./dataPreparation');
 const config = require('../config/config');
-const fetchSPYLastPrice = require('./fetchSPY');
 const isMarketOpen = require('./marketStatus');
+const { fetchOptionsChain, fetchExpectedMove, fetchSPYLastPrice, fetchHistoricalDataPoints } = require('./fetchDataHelper');
 
 const fetchFinancialData = () => {
     setInterval(async () => {
@@ -15,28 +15,27 @@ const fetchFinancialData = () => {
                 return;
             }
 
-            console.log('Fetching options chain data...');
-            const response = await axios.get(
-                `https://api.marketdata.app/v1/options/chain/${config.ticker}?dte=${config.daysToExpire}&strikeLimit=${config.levelsOfStrike}&token=${config.token}`
-            );
-            let rawData = response.data;
+            console.log('Fetching financial data...');
+            const [optionsChainData, spyLastPrice, expectedMoveData, historicalDataPoints] = await Promise.all([
+                fetchOptionsChain(config.ticker),
+                fetchSPYLastPrice(),
+                fetchExpectedMove(config.ticker),
+                fetchHistoricalDataPoints(config.ticker)
+            ]);
 
             console.log('Preparing data...');
-            const data = await prepareData(rawData);
-
-            console.log('Fetching SPY last price...');
-            const spyLastPrice = await fetchSPYLastPrice();
+            const data = await prepareData(optionsChainData, historicalDataPoints);
 
             console.log('Combining data...');
             const combinedData = {
                 Options: data || {},
                 Price: spyLastPrice.Last,
+                ExpectedMove: expectedMoveData.expectedMove
             };
 
-            const timestamp = rawData.updated[0];
+            const timestamp = optionsChainData.updated[0];
 
             console.log('Storing data in Redis...');
-            console.log('Combined Data:', JSON.stringify(combinedData, null, 2));
             const redisClient = await getRedisClient();
             await redisClient.zAdd('options_chain_data_zset', {
                 score: timestamp,
