@@ -11,14 +11,14 @@ const fetchFinancialData = async () => {
         try {
             const startTime = performance.now();
 
-            console.log('Checking if market is open...');
+            /*console.log('Checking if market is open...');
             const marketOpen = await isMarketOpen();
             if (!marketOpen) {
                 console.log('Market is closed. Skipping data fetch.');
                 // Schedule the next check after a delay when market is closed
                 setTimeout(fetchAndProcessData, config.retrieveInterval);
                 return;
-            }
+            }*/
 
             console.log('Fetching financial data...');
             const fetchStartTime = performance.now();
