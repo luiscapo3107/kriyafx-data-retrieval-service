@@ -1,6 +1,5 @@
 const axios = require('axios');
 const config = require('../config/config');
-const { getRedisClient } = require('../services/redisClient');
 
 const fetchOptionsChain = async (symbol) => {
   try {
@@ -68,21 +67,8 @@ const fetchSPYLastPrice = async () => {
   }
 };
 
-const fetchHistoricalDataPoints = async (symbol) => {
-  const now = Date.now();
-  const timePoints = [1, 3, 5, 15].map(minutes => now - minutes * 60 * 1000);
-  
-  const redisClient = await getRedisClient();
-  const results = await Promise.all(timePoints.map(time => 
-    redisClient.zRevRangeByScore('options_chain_data_zset', '+inf', time, 'LIMIT', 0, 1)
-  ));
-
-  return results.map(result => result[0] ? JSON.parse(result[0]) : null);
-};
-
 module.exports = {
   fetchOptionsChain,
   fetchExpectedMove,
-  fetchSPYLastPrice,
-  fetchHistoricalDataPoints
+  fetchSPYLastPrice
 };
