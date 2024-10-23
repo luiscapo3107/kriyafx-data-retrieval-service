@@ -41,4 +41,17 @@ function scheduleRedisFlush() {
   console.log(`Scheduled Redis DB flush for ${closeHour}:${closeMinute} on weekdays`);
 }
 
+const checkRedisConnection = async () => {
+    try {
+        const redisClient = await getRedisClient();
+        await redisClient.ping();
+        console.log('Successfully connected to Redis');
+    } catch (error) {
+        console.error('Failed to connect to Redis:', error);
+    }
+};
+
+// Call this function when your app starts
+checkRedisConnection();
+
 module.exports = { getRedisClient, closeRedisClient, scheduleRedisFlush };

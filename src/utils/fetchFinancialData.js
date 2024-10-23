@@ -50,23 +50,34 @@ const fetchFinancialData = async () => {
 
             console.log('Checking if data has changed...');
             const redisClient = await getRedisClient();
-            const lastEntry = await redisClient.zRange('options_chain_data_zset', -1, -1, { REV: true });
+            let lastEntry;
+            try {
+                lastEntry = await redisClient.zRange('options_chain_data_zset', -1, -1, { REV: true });
+            } catch (redisError) {
+                console.error('Error fetching last entry from Redis:', redisError);
+                lastEntry = [];
+            }
             
             if (lastEntry.length > 0) {
                 const lastData = JSON.parse(lastEntry[0]);
                 if (lastData.Options.Updated === combinedData.Options.Updated) {
-                    console.log('Data has not changed. Waiting for '+ config.retrieveInterval/1000+' seconds before trying again.');
-                    setTimeout(fetchAndProcessData, config.retrieveInterval); 
+                    console.log('Data has not changed. Waiting for 1 minute before trying again.');
+                    setTimeout(fetchAndProcessData, 60000);
                     return;
                 }
             }
 
             console.log('Storing data in Redis...');
             const redisStartTime = performance.now();
-            await redisClient.zAdd('options_chain_data_zset', {
-                score: timestamp,
-                value: JSON.stringify(combinedData),
-            });
+            try {
+                await redisClient.zAdd('options_chain_data_zset', {
+                    score: timestamp,
+                    value: JSON.stringify(combinedData),
+                });
+            } catch (redisError) {
+                console.error('Error adding data to Redis:', redisError);
+                throw redisError;  // Re-throw to be caught by the outer catch block
+            }
             const redisEndTime = performance.now();
             console.log(`Redis storage took ${redisEndTime - redisStartTime} ms`);
 
@@ -76,9 +87,19 @@ const fetchFinancialData = async () => {
 
             console.log('Managing Redis entries...');
             const maxEntries = config.redisMaxEntries;
-            const totalEntries = await redisClient.zCard('options_chain_data_zset');
+            let totalEntries;
+            try {
+                totalEntries = await redisClient.zCard('options_chain_data_zset');
+            } catch (redisError) {
+                console.error('Error getting total entries from Redis:', redisError);
+                totalEntries = 0;
+            }
             if (totalEntries > maxEntries) {
-                await redisClient.zRemRangeByRank('options_chain_data_zset', 0, totalEntries - maxEntries - 1);
+                try {
+                    await redisClient.zRemRangeByRank('options_chain_data_zset', 0, totalEntries - maxEntries - 1);
+                } catch (redisError) {
+                    console.error('Error removing excess entries from Redis:', redisError);
+                }
             }
 
             const endTime = performance.now();
