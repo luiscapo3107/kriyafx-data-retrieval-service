@@ -11,14 +11,14 @@ const fetchFinancialData = async () => {
         try {
             const startTime = performance.now();
 
-            /*console.log('Checking if market is open...');
+            console.log('Checking if market is open...');
             const marketOpen = await isMarketOpen();
             if (!marketOpen) {
                 console.log('Market is closed. Skipping data fetch.');
                 // Schedule the next check after a delay when market is closed
                 setTimeout(fetchAndProcessData, config.retrieveInterval);
                 return;
-            }*/
+            }
 
             console.log('Fetching financial data...');
             const fetchStartTime = performance.now();
@@ -48,9 +48,21 @@ const fetchFinancialData = async () => {
 
             const timestamp = optionsChainData.updated[0];
 
+            console.log('Checking if data has changed...');
+            const redisClient = await getRedisClient();
+            const lastEntry = await redisClient.zRange('options_chain_data_zset', -1, -1, { REV: true });
+            
+            if (lastEntry.length > 0) {
+                const lastData = JSON.parse(lastEntry[0]);
+                if (lastData.Options.Updated === combinedData.Options.Updated) {
+                    console.log('Data has not changed. Waiting for '+ config.retrieveInterval/1000+' seconds before trying again.');
+                    setTimeout(fetchAndProcessData, config.retrieveInterval); 
+                    return;
+                }
+            }
+
             console.log('Storing data in Redis...');
             const redisStartTime = performance.now();
-            const redisClient = await getRedisClient();
             await redisClient.zAdd('options_chain_data_zset', {
                 score: timestamp,
                 value: JSON.stringify(combinedData),

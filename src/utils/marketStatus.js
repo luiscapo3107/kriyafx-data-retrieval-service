@@ -2,9 +2,6 @@ const axios = require('axios');
 const config = require('../config/config');
 const { DateTime } = require('luxon');
 
-let cachedMarketStatus = null;
-let lastCheckedDate = null;
-
 const isWeekend = (date) => {
     return date.weekday > 5;
 };
@@ -32,45 +29,29 @@ const fetchMarketStatusFromAPI = async () => {
     }
 };
 
-const getCachedStatus = (today) => {
-    if (cachedMarketStatus !== null && lastCheckedDate === today) {
-        console.log('Using cached market status:', cachedMarketStatus);
-        return cachedMarketStatus;
-    }
-    return null;
-};
-
-const updateCachedStatus = (status, today) => {
-    cachedMarketStatus = status;
-    lastCheckedDate = today;
-};
-
 const isMarketOpen = async () => {
-    const nowCET = DateTime.now().setZone('Europe/Berlin');
-    const today = nowCET.toISODate();
-
-    const cachedStatus = getCachedStatus(today);
-    if (cachedStatus !== null) {
-        return cachedStatus;
+    // Check if market status checking is enabled
+    if (!config.checkMarketStatus) {
+        console.log('Market status checking is disabled. Assuming market is open.');
+        return true;
     }
+
+    const nowCET = DateTime.now().setZone('Europe/Berlin');
 
     try {
         if (isWeekend(nowCET)) {
             console.log('It\'s a weekend. Market is closed.');
-            updateCachedStatus(false, today);
             return false;
         }
 
         if (!isWithinMarketHours(nowCET)) {
             console.log('Outside specified hours. Market is closed.');
-            updateCachedStatus(false, today);
             return false;
         }
 
         const status = await fetchMarketStatusFromAPI();
         console.log(`Market status: ${status ? 'open' : 'closed'}`);
 
-        updateCachedStatus(status, today);
         return status;
     } catch (error) {
         console.error(`Error checking market status: ${error}`);

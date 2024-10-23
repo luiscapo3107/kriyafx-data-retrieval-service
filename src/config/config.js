@@ -12,5 +12,6 @@ module.exports = {
   marketOpenHour: parseInt(process.env.MARKET_OPEN_HOUR) || 7,
   marketOpenMinute: parseInt(process.env.MARKET_OPEN_MINUTE) || 25,
   marketCloseHour: parseInt(process.env.MARKET_CLOSE_HOUR) || 22,
-  marketCloseMinute: parseInt(process.env.MARKET_CLOSE_MINUTE) || 30
+  marketCloseMinute: parseInt(process.env.MARKET_CLOSE_MINUTE) || 30,
+  checkMarketStatus: process.env.CHECK_MARKET_STATUS === 'TRUE'
 };
