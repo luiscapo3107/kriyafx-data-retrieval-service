@@ -6,15 +6,10 @@ const isMarketOpen = require('./marketStatus');
 const { fetchOptionsChain, fetchExpectedMove, fetchSPYLastPrice } = require('./fetchDataHelper');
 const { performance } = require('perf_hooks');
 
-let redisClient; // Declare redisClient outside the function to maintain the connection
-
 const fetchFinancialData = async () => {
     const fetchAndProcessData = async () => {
         try {
-            if (!redisClient) {
-                console.log('Initializing Redis client...');
-                redisClient = await getRedisClient();
-            }
+            const startTime = performance.now();
 
             console.log('Checking if market is open...');
             const marketOpen = await isMarketOpen();
@@ -53,36 +48,13 @@ const fetchFinancialData = async () => {
 
             const timestamp = optionsChainData.updated[0];
 
-            console.log('Checking if data has changed...');
-            let lastEntry;
-            try {
-                lastEntry = await redisClient.zRange('options_chain_data_zset', -1, -1);
-                console.log('Last entry retrieved:', lastEntry);
-            } catch (redisError) {
-                console.error('Error fetching last entry from Redis:', redisError);
-                lastEntry = [];
-            }
-            
-            if (lastEntry.length > 0) {
-                const lastData = JSON.parse(lastEntry[0]);
-                if (lastData.Options.Updated === combinedData.Options.Updated) {
-                    console.log('Data has not changed. Waiting for 1 minute before trying again.');
-                    setTimeout(fetchAndProcessData, 60000);
-                    return;
-                }
-            }
-
             console.log('Storing data in Redis...');
             const redisStartTime = performance.now();
-            try {
-                await redisClient.zAdd('options_chain_data_zset', {
-                    score: timestamp,
-                    value: JSON.stringify(combinedData),
-                });
-            } catch (redisError) {
-                console.error('Error adding data to Redis:', redisError);
-                throw redisError;
-            }
+            const redisClient = await getRedisClient();
+            await redisClient.zAdd('options_chain_data_zset', {
+                score: timestamp,
+                value: JSON.stringify(combinedData),
+            });
             const redisEndTime = performance.now();
             console.log(`Redis storage took ${redisEndTime - redisStartTime} ms`);
 
@@ -92,19 +64,9 @@ const fetchFinancialData = async () => {
 
             console.log('Managing Redis entries...');
             const maxEntries = config.redisMaxEntries;
-            let totalEntries;
-            try {
-                totalEntries = await redisClient.zCard('options_chain_data_zset');
-            } catch (redisError) {
-                console.error('Error getting total entries from Redis:', redisError);
-                totalEntries = 0;
-            }
+            const totalEntries = await redisClient.zCard('options_chain_data_zset');
             if (totalEntries > maxEntries) {
-                try {
-                    await redisClient.zRemRangeByRank('options_chain_data_zset', 0, totalEntries - maxEntries - 1);
-                } catch (redisError) {
-                    console.error('Error removing excess entries from Redis:', redisError);
-                }
+                await redisClient.zRemRangeByRank('options_chain_data_zset', 0, totalEntries - maxEntries - 1);
             }
 
             const endTime = performance.now();
@@ -116,7 +78,7 @@ const fetchFinancialData = async () => {
             console.error('Error in fetchFinancialData:', error);
         }
 
-        // Schedule the next execution
+        // Schedule the next execution immediately
         setImmediate(fetchAndProcessData);
     };
 
