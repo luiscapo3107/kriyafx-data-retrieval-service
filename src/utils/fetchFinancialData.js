@@ -6,12 +6,15 @@ const isMarketOpen = require('./marketStatus');
 const { fetchOptionsChain, fetchExpectedMove, fetchSPYLastPrice } = require('./fetchDataHelper');
 const { performance } = require('perf_hooks');
 
+let redisClient; // Declare redisClient outside the function to maintain the connection
+
 const fetchFinancialData = async () => {
     const fetchAndProcessData = async () => {
-        let redisClient;
         try {
-            console.log('Initializing Redis client...');
-            redisClient = await getRedisClient();
+            if (!redisClient) {
+                console.log('Initializing Redis client...');
+                redisClient = await getRedisClient();
+            }
 
             console.log('Checking if market is open...');
             const marketOpen = await isMarketOpen();
@@ -111,11 +114,6 @@ const fetchFinancialData = async () => {
 
         } catch (error) {
             console.error('Error in fetchFinancialData:', error);
-        } finally {
-            if (redisClient) {
-                console.log('Closing Redis connection...');
-                await redisClient.quit();
-            }
         }
 
         // Schedule the next execution
