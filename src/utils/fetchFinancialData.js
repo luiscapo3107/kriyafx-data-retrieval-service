@@ -48,23 +48,28 @@ const fetchFinancialData = async () => {
 
             const timestamp = optionsChainData.updated[0];
 
-            console.log('Checking if data has changed...');
-            const redisClient = await getRedisClient();
-            let lastEntry;
-            try {
-                lastEntry = await redisClient.zRange('options_chain_data_zset', -1, -1, { REV: true });
-            } catch (redisError) {
-                console.error('Error fetching last entry from Redis:', redisError);
-                lastEntry = [];
-            }
-            
-            if (lastEntry.length > 0) {
-                const lastData = JSON.parse(lastEntry[0]);
-                if (lastData.Options.Updated === combinedData.Options.Updated) {
-                    console.log('Data has not changed. Waiting for 1 minute before trying again.');
-                    setTimeout(fetchAndProcessData, 60000);
-                    return;
+            if (!config.skipRedisCheck) {
+                console.log('Checking if data has changed...');
+                const redisClient = await getRedisClient();
+                let lastEntry;
+                try {
+                    lastEntry = await redisClient.zRange('options_chain_data_zset', -1, -1);
+                    console.log('Last entry retrieved:', lastEntry);
+                } catch (redisError) {
+                    console.error('Error fetching last entry from Redis:', redisError);
+                    lastEntry = [];
                 }
+                
+                if (lastEntry.length > 0) {
+                    const lastData = JSON.parse(lastEntry[0]);
+                    if (lastData.Options.Updated === combinedData.Options.Updated) {
+                        console.log('Data has not changed. Waiting for 1 minute before trying again.');
+                        setTimeout(fetchAndProcessData, 60000);
+                        return;
+                    }
+                }
+            } else {
+                console.log('Skipping Redis check as per configuration.');
             }
 
             console.log('Storing data in Redis...');
