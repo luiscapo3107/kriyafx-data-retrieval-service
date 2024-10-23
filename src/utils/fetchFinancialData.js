@@ -8,8 +8,10 @@ const { performance } = require('perf_hooks');
 
 const fetchFinancialData = async () => {
     const fetchAndProcessData = async () => {
+        let redisClient;
         try {
-            const startTime = performance.now();
+            console.log('Initializing Redis client...');
+            redisClient = await getRedisClient();
 
             console.log('Checking if market is open...');
             const marketOpen = await isMarketOpen();
@@ -48,28 +50,23 @@ const fetchFinancialData = async () => {
 
             const timestamp = optionsChainData.updated[0];
 
-            if (!config.skipRedisCheck) {
-                console.log('Checking if data has changed...');
-                const redisClient = await getRedisClient();
-                let lastEntry;
-                try {
-                    lastEntry = await redisClient.zRange('options_chain_data_zset', -1, -1);
-                    console.log('Last entry retrieved:', lastEntry);
-                } catch (redisError) {
-                    console.error('Error fetching last entry from Redis:', redisError);
-                    lastEntry = [];
+            console.log('Checking if data has changed...');
+            let lastEntry;
+            try {
+                lastEntry = await redisClient.zRange('options_chain_data_zset', -1, -1);
+                console.log('Last entry retrieved:', lastEntry);
+            } catch (redisError) {
+                console.error('Error fetching last entry from Redis:', redisError);
+                lastEntry = [];
+            }
+            
+            if (lastEntry.length > 0) {
+                const lastData = JSON.parse(lastEntry[0]);
+                if (lastData.Options.Updated === combinedData.Options.Updated) {
+                    console.log('Data has not changed. Waiting for 1 minute before trying again.');
+                    setTimeout(fetchAndProcessData, 60000);
+                    return;
                 }
-                
-                if (lastEntry.length > 0) {
-                    const lastData = JSON.parse(lastEntry[0]);
-                    if (lastData.Options.Updated === combinedData.Options.Updated) {
-                        console.log('Data has not changed. Waiting for 1 minute before trying again.');
-                        setTimeout(fetchAndProcessData, 60000);
-                        return;
-                    }
-                }
-            } else {
-                console.log('Skipping Redis check as per configuration.');
             }
 
             console.log('Storing data in Redis...');
@@ -81,7 +78,7 @@ const fetchFinancialData = async () => {
                 });
             } catch (redisError) {
                 console.error('Error adding data to Redis:', redisError);
-                throw redisError;  // Re-throw to be caught by the outer catch block
+                throw redisError;
             }
             const redisEndTime = performance.now();
             console.log(`Redis storage took ${redisEndTime - redisStartTime} ms`);
@@ -114,9 +111,14 @@ const fetchFinancialData = async () => {
 
         } catch (error) {
             console.error('Error in fetchFinancialData:', error);
+        } finally {
+            if (redisClient) {
+                console.log('Closing Redis connection...');
+                await redisClient.quit();
+            }
         }
 
-        // Schedule the next execution immediately
+        // Schedule the next execution
         setImmediate(fetchAndProcessData);
     };
 
